@@ -1,0 +1,38 @@
+name: Sync upstream
+
+on:
+  schedule:
+    # Daily at 08:17 Asia/Shanghai (00:17 UTC).
+    - cron: '17 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.repository == 'plwxl/oci-helper'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Merge updates from Yohann0617
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_BRANCH: master
+        shell: bash
+        run: |
+          set -euo pipefail
+          upstream="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.parent.full_name')"
+          if [[ "$upstream" != "Yohann0617/oci-helper" ]]; then
+            echo "::error::Unexpected upstream repository: $upstream"
+            exit 1
+          fi
+          gh api --method POST "repos/$GITHUB_REPOSITORY/merge-upstream" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            -f branch="$TARGET_BRANCH"
+          echo "Synced $TARGET_BRANCH with Yohann0617/oci-helper. Merge conflicts stop the run without overwriting local changes." >> "$GITHUB_STEP_SUMMARY"
